@@ -5,7 +5,7 @@ const port = 3000;
 
 // ペライチページ
 app.get("/", (_req: Request, res: Response) => {
-  res.send("<h1>Myポートフォリオ（最小構成）</h1>");
+  res.send("<h1>Myポートフォリオ（最小構成）【2026/09/20】</h1>");
 });
 
 // 仮のAIチャットAPI
