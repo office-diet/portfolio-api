@@ -6,8 +6,10 @@ const app = express();
 const port = 3000;
 app.use(cors());
 
+const databaseUrl = process.env.DATABASE_URL ?? `postgres://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`;
+
 const client = new Client({
-  connectionString: process.env.DATABASE_URL
+  connectionString: databaseUrl
 });
 client.connect();
 
