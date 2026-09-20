@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Simple SPA</title>
+</head>
+<body>
+  <h1>Simple SPA</h1>
+  <button id="btn">Call API</button>
+  <pre id="result"></pre>
+
+  <script>
+    document.getElementById("btn").onclick = async () => {
+      const res = await fetch("http://localhost:3000/api/hello");
+      const json = await res.json();
+      document.getElementById("result").textContent = JSON.stringify(json, null, 2);
+    };
+  </script>
+</body>
+</html>
