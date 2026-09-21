@@ -11,7 +11,7 @@
 
   <script>
     document.getElementById("btn").onclick = async () => {
-      const res = await fetch("http://localhost:3000/api/hello");
+      const res = await fetch("http://localhost:3000/api/aimembers");
       const json = await res.json();
       document.getElementById("result").textContent = JSON.stringify(json, null, 2);
     };
