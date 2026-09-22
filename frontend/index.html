@@ -6,14 +6,44 @@
 </head>
 <body>
   <h1>Simple SPA</h1>
+  <textarea name="message" id="message"></textarea>
   <button id="btn">Call API</button>
   <pre id="result"></pre>
   <script>
     document.getElementById("btn").onclick = async () => {
-      const res = await fetch("http://localhost:3000/api/aimembers");
+      const result = document.getElementById("result");
+
+      let stamp = formatDate();
+      const message = document.getElementById("message").value;
+      result.innerHTML += `<div class="times-tamp">${stamp}</div>`;
+      result.innerHTML += `<div class="member-name">あなた</div>`;
+      result.innerHTML += `<div class="message">${message}</div>`;
+    
+      const res = await fetch("http://localhost:3000/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: message })
+      });
       const json = await res.json();
-      document.getElementById("result").textContent = JSON.stringify(json, null, 2);
+      
+      stamp = formatDate();
+      result.innerHTML += `<div class="times-tamp">${stamp}</div>`;
+      result.innerHTML += `<div class="member-name">${json.name}</div>`;
+      result.innerHTML += `<div class="message">${json.reply.replaceAll("\n\n", "\n")}</div>`;
     };
+
+    function formatDate() {
+      const d = new Date();
+      const yyyy = d.getFullYear();
+      const mm   = String(d.getMonth() + 1).padStart(2, "0");
+      const dd   = String(d.getDate()).padStart(2, "0");
+
+      const hh   = String(d.getHours()).padStart(2, "0");
+      const nn   = String(d.getMinutes()).padStart(2, "0");
+      const ss   = String(d.getSeconds()).padStart(2, "0");
+
+      return `${yyyy}-${mm}-${dd} ${hh}:${nn}:${ss}`;
+    }
   </script>
 </body>
 </html>
