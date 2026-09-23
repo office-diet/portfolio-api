@@ -13,7 +13,7 @@ services:
     volumes:
       - ./database/init:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user"]
+      test: ["CMD-SHELL", "pg_isready -U user -d chatdb"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -27,7 +27,8 @@ services:
       DB_URL: ${DB_URL}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
   frontend:
     build: ./frontend
