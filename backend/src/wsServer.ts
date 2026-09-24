@@ -340,6 +340,11 @@ export function startWebSocketServer(server: any) {
     const json = JSON.stringify(obj);
     onlineUsers.forEach((user) => user.ws.send(json));
   }
+
+  setInterval(() => {
+    onlineUsers.forEach((user) => user.ws.OPEN());
+  }, 30000);
+
 }
 
 function sleepRandom() {
