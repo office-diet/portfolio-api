@@ -342,7 +342,7 @@ export function startWebSocketServer(server: any) {
   }
 
   setInterval(() => {
-    onlineUsers.forEach((user) => user.ws.OPEN());
+    onlineUsers.forEach((user) => user.ws.ping());
   }, 30000);
 
 }
