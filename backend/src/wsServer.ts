@@ -96,8 +96,9 @@ const sayakaPersona = "You are 'さやか', a bright, stylish, and energetic wom
 let chatHistoryGemini = [];
 let chatHistoryGroq =   [];
 let visitorCount = 0;
-chatHistoryGemini.push({role: "user", parts: [{text: "匿名グループチャットが開設されました！だれでも参加しやすい雰囲気のメッセージを生成してください。"}]});
-chatHistoryGroq.push({role: "user",   content:       "匿名グループチャットが開設されました！だれでも参加しやすい雰囲気のメッセージを生成してください。"  });
+chatHistoryGemini.push({role: "user", parts: [{text: "匿名グループチャットが開設されました！だれでも参加しやすい雰囲気の短いメッセージを生成してください。"}]});
+chatHistoryGroq.push({role: "user",   content:       "匿名グループチャットが開設されました！だれでも参加しやすい雰囲気の短いメッセージを生成してください。"  });
+chatHistoryGroq.unshift({role:"system", content: sayakaPersona});
 
 // DB接続
 const postgreSQL = new Client({
@@ -216,6 +217,10 @@ export function startWebSocketServer(server: any) {
         });
 
         try {
+          let jst = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+          let chatTime = jst.toLocaleString();
+          chatHistoryGemini.push({role: "user", parts: [{text: `【非表示メッセージ, datetime:${chatTime}】秘密の依頼。誰かが新規入室したので、自然に会話を続けて雰囲気を盛り上げて下さ。`}]});
+          chatHistoryGroq.push({  role: "user", content:       `【非表示メッセージ, datetime:${chatTime}】秘密の依頼。誰かが新規入室したので、自然に会話を続けて雰囲気を盛り上げて下さ。`  });
           await generateAiText();
         } catch (err) {
           console.log(err)
