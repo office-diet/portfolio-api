@@ -89,6 +89,7 @@ const sayakaPersona = "You are 'さやか', a bright, stylish, and energetic wom
 
 let chatHistoryGemini = [];
 let chatHistoryGroq = [];
+let visitorCount = 0;
 
 // DB接続
 const postgreSQL = new Client({
@@ -120,7 +121,7 @@ export function startWebSocketServer(server: any) {
         const visitorId = visitorNew.rows[0].id;
 
         const result = await postgreSQL.query("SELECT id FROM visitors");
-        const visitorCount = result.rows.length;
+        visitorCount = result.rows.length;
         const visitorName = `GuestUser-${visitorCount - 2}`;
         
         const chat_logs = await postgreSQL.query(
@@ -260,8 +261,10 @@ export function startWebSocketServer(server: any) {
           await postgreSQL.query(`UPDATE visitors SET exit_at = NOW() WHERE id = '${visitorId}'`);
           onlineUsers.splice(index, 1);
       }
+      
       broadcast({
         type: "online",
+        visitorCount: visitorCount,
         onlineCount: onlineUsers.length + 2,
       });
     });
