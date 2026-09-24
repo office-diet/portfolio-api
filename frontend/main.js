@@ -67,13 +67,13 @@ ws.onmessage = (event) => {
 
       let html = "";
       if (row.name === usuchanName) {
-        html = `<div class="usuchan name" visitorid="${row.visitor_id}">${row.name}：${row.created_at}</div>` +
+        html = `<div class="usuchan name" visitorid="${row.visitor_id}">${row.name}：${utc2jst(row.created_at)}</div>` +
                 `<div class="usuchan message-text">${row.message.replaceAll("\n\n", "<br>").replaceAll("\n", "<br>")}</div>`;
       } else if (row.name === sayakaName) {
-        html = `<div class="sayaka name" visitorid="${row.visitor_id}">${row.name}：${row.created_at}</div>` +
+        html = `<div class="sayaka name" visitorid="${row.visitor_id}">${row.name}：${utc2jst(row.created_at)}</div>` +
                 `<div class="sayaka message-text">${row.message.replaceAll("\n\n", "<br>").replaceAll("\n", "<br>")}</div>`;
       } else {
-        html = `<div class="other name" visitorid="${row.visitor_id}">${row.name}：${row.created_at}</div>` +
+        html = `<div class="other name" visitorid="${row.visitor_id}">${row.name}：${utc2jst(row.created_at)}</div>` +
                 `<div class="other message-text">${row.message.replaceAll("\n\n", "<br>").replaceAll("\n", "<br>")}</div>`;
       }
 
