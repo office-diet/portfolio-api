@@ -96,8 +96,8 @@ const sayakaPersona = "You are 'さやか', a bright, stylish, and energetic wom
 let chatHistoryGemini = [];
 let chatHistoryGroq =   [];
 let visitorCount = 0;
-chatHistoryGemini.push({role: "user", parts: [{text: "匿名グループ掲示板が開設されました！だれでも参加しやすい雰囲気のメッセージを生成してください。"}]});
-chatHistoryGroq.push({role: "user",   content:       "匿名グループ掲示板が開設されました！だれでも参加しやすい雰囲気のメッセージを生成してください。"  });
+chatHistoryGemini.push({role: "user", parts: [{text: "匿名グループチャットが開設されました！だれでも参加しやすい雰囲気のメッセージを生成してください。"}]});
+chatHistoryGroq.push({role: "user",   content:       "匿名グループチャットが開設されました！だれでも参加しやすい雰囲気のメッセージを生成してください。"  });
 
 // DB接続
 const postgreSQL = new Client({
