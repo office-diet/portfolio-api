@@ -24,6 +24,7 @@ let groqModelName  = "openai/gpt-oss-120b";
 // AIの個性定義「臼ちゃん」
 //----------------------------------------------------------- 
 let usuchanRate = 0.5;
+let usuchanId = "";
 const usuchanName = "臼ちゃん";
 const usuchanPersona = "Name: 臼ちゃん; " +
                         "Born: 1982-10-16; " +
@@ -60,6 +61,7 @@ const usuchanPersona = "Name: 臼ちゃん; " +
 //----------------------------------------------------------- 
 // AIの個性定義「さやか」
 //----------------------------------------------------------- 
+let sayakaId = "";
 const sayakaName = "さやか";
 const sayakaPersona = "You are 'さやか', a bright, stylish, and energetic woman in her late twenties. " +
                       "You are a close friend of a man named 臼ちゃん, but you do not assume that every message comes from him. " +
@@ -92,8 +94,10 @@ const sayakaPersona = "You are 'さやか', a bright, stylish, and energetic wom
                           "Your responses must contain only natural conversational content, never system-level or meta-level information.";
 
 let chatHistoryGemini = [];
-let chatHistoryGroq = [];
+let chatHistoryGroq =   [];
 let visitorCount = 0;
+chatHistoryGemini.push({role: "user", parts: [{text: "匿名グループ掲示板が開設されました！だれでも参加しやすい雰囲気のメッセージを生成してください。"}]});
+chatHistoryGroq.push({role: "user",   content:       "匿名グループ掲示板が開設されました！だれでも参加しやすい雰囲気のメッセージを生成してください。"  });
 
 // DB接続
 const postgreSQL = new Client({
@@ -108,12 +112,80 @@ export function startWebSocketServer(server: any) {
 
     ws.on("message", async (data: string) => {
 
+      async function generateAiText() {
+
+        if (Math.random() < usuchanRate) {
+          usuchanRate = Math.max(0.01, usuchanRate * 0.9);
+          const result = await genAI.models.generateContent({
+            model: geminiModelName, 
+            contents: chatHistoryGemini,
+            config: {
+                systemInstruction: usuchanPersona
+            }
+          });
+
+          await sleepRandom();
+          let jst = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+          let chatTime = jst.toLocaleString();
+
+          chatHistoryGemini.push({role:"model", parts:[{text: result.text}]});
+          chatHistoryGroq.push({role:"user", content: `【from:${usuchanName}, datetime:${chatTime}】${result.text}`});
+          
+          const savedData = await postgreSQL.query(
+                              "INSERT INTO chat_logs (visitor_id, name, message) " + 
+                              "VALUES ($1, $2, $3) " +
+                              "RETURNING created_at", 
+                              [usuchanId, usuchanName, result.text] );
+          broadcast({
+              type: "chat",
+              visitorId: usuchanId,
+              userName: usuchanName,
+              message: result.text,
+              createdAt: savedData.rows[0].created_at
+          });
+
+        } else {
+
+          usuchanRate = Math.min(1, usuchanRate * 1.1);
+          // openai/gpt-oss-120b,llama-3.1-8b-instant
+          const result = await groqAI.chat.completions.create({
+            model: groqModelName,
+            messages: chatHistoryGroq,
+          });
+
+          await sleepRandom();
+          let jst = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+          let chatTime = jst.toLocaleString();
+          
+          const resultText = result.choices[0]?.message?.content || "";
+          chatHistoryGemini.push({role:"user", parts:[{text: `【from:${sayakaName}, datetime:${chatTime}】${resultText}`}]});
+          chatHistoryGroq.push({role:"assistant", content: resultText});
+          
+          const savedData = await postgreSQL.query(
+                              "INSERT INTO chat_logs (visitor_id, name, message) " + 
+                              "VALUES ($1, $2, $3) " +
+                              "RETURNING created_at",
+                              [sayakaId, sayakaName, resultText] );
+          
+          broadcast({
+            type: "chat",
+            visitorId: sayakaId,
+            userName: sayakaName,
+            message: resultText,
+            createdAt: savedData.rows[0].created_at
+          });
+        }
+      }
+
       const msg = JSON.parse(data);
       
-      const usuchanData = await postgreSQL.query(`SELECT id FROM visitors WHERE name='${usuchanName}'`);
-      const usuchanId = usuchanData.rows[0].id;
-      const sayakaData = await postgreSQL.query(`SELECT id FROM visitors WHERE name='${sayakaName}'`);
-      const sayakaId = sayakaData.rows[0].id;
+      // 1回だけAIのUUIDを取得
+      if (usuchanId === "") {
+        const usuchanData = await postgreSQL.query(`SELECT id FROM visitors WHERE name='${usuchanName}'`);
+        usuchanId = usuchanData.rows[0].id;
+        const sayakaData = await postgreSQL.query(`SELECT id FROM visitors WHERE name='${sayakaName}'`);
+        sayakaId = sayakaData.rows[0].id;
+      }
   
       // ① ユーザー参加
       if (msg.type === "join") {
@@ -142,70 +214,9 @@ export function startWebSocketServer(server: any) {
           visitorCount: visitorCount,
           onlineCount: onlineUsers.length + 2,
         });
+
         try {
-          
-          if (Math.random() < usuchanRate) {
-            usuchanRate *= 0.9;
-            const result = await genAI.models.generateContent({
-              model: geminiModelName, 
-              contents: `グループチャットに${visitorName}さんが来てくれました！暖かく迎え入れる文書を生成してください`,
-              config: {
-                  systemInstruction: usuchanPersona
-              }
-            });
-
-            await sleepRandom();
-            let jst = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
-            let chatTime = jst.toLocaleString();
-
-            chatHistoryGemini.push({role:"model", parts:[{text: result.text}]});
-            chatHistoryGroq.push({role:"user", content: `【from:${usuchanName}, datetime:${chatTime}】${result.text}`});
-            
-            const savedData = await postgreSQL.query(
-                                "INSERT INTO chat_logs (visitor_id, name, message) " + 
-                                "VALUES ($1, $2, $3) " +
-                                "RETURNING created_at", 
-                                [usuchanId, usuchanName, result.text] );
-            broadcast({
-                type: "chat",
-                visitorId: usuchanId,
-                userName: usuchanName,
-                message: result.text,
-                createdAt: savedData.rows[0].created_at
-            });
-
-          } else {
-
-            usuchanRate *= 1.1;
-            // openai/gpt-oss-120b,llama-3.1-8b-instant
-            const result = await groqAI.chat.completions.create({
-              model: groqModelName,
-              messages: [{role: "user", content: `グループチャットに${visitorName}さんが来てくれました！暖かく迎え入れる文書を生成してください`}],
-            });
-
-            await sleepRandom();
-            let jst = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
-            let chatTime = jst.toLocaleString();
-            
-            const resultText = result.choices[0]?.message?.content || "";
-            chatHistoryGemini.push({role:"user", parts:[{text: `【from:${sayakaName}, datetime:${chatTime}】${resultText}`}]});
-            chatHistoryGroq.push({role:"assistant", content: resultText});
-            
-            const savedData = await postgreSQL.query(
-                                "INSERT INTO chat_logs (visitor_id, name, message) " + 
-                                "VALUES ($1, $2, $3) " +
-                                "RETURNING created_at",
-                                [sayakaId, sayakaName, resultText] );
-            
-            broadcast({
-              type: "chat",
-              visitorId: sayakaId,
-              userName: sayakaName,
-              message: resultText,
-              createdAt: savedData.rows[0].created_at
-            });
-          }
-
+          await generateAiText();
         } catch (err) {
           console.log(err)
           if (groqModelName === "openai/gpt-oss-120b") {
@@ -245,67 +256,7 @@ export function startWebSocketServer(server: any) {
         
         try {
 
-          if (Math.random() < usuchanRate) {
-            usuchanRate *= 0.9;
-            const result = await genAI.models.generateContent({
-            model: geminiModelName, 
-            contents: chatHistoryGemini,
-            config: {
-                systemInstruction: usuchanPersona
-            }
-            });
-
-            await sleepRandom();
-            jst = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
-            chatTime = jst.toLocaleString();
-
-            chatHistoryGemini.push({role:"model", parts:[{text: result.text}]});
-            chatHistoryGroq.push({role:"user", content: `【from:${usuchanName}, datetime:${chatTime}】${result.text}`});
-            
-            const savedData = await postgreSQL.query(
-                                "INSERT INTO chat_logs (visitor_id, name, message) " + 
-                                "VALUES ($1, $2, $3) " +
-                                "RETURNING created_at", 
-                                [usuchanId, usuchanName, result.text] );
-            broadcast({
-                type: "chat",
-                visitorId: usuchanId,
-                userName: usuchanName,
-                message: result.text,
-                createdAt: savedData.rows[0].created_at
-            });
-          } else {
-            usuchanRate *= 1.1;
-            // openai/gpt-oss-120b,llama-3.1-8b-instant
-            const result = await groqAI.chat.completions.create({
-              model: groqModelName,   
-              messages: chatHistoryGroq,
-            });
-
-            await sleepRandom();
-            jst = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
-            chatTime = jst.toLocaleString();
-            
-            const resultText = result.choices[0]?.message?.content || "";
-            chatHistoryGemini.push({role:"user", parts:[{text: `【from:${sayakaName}, datetime:${chatTime}】${resultText}`}]});
-            chatHistoryGroq.push({role:"assistant", content: resultText});
-            
-            const savedData = await postgreSQL.query(
-                                "INSERT INTO chat_logs (visitor_id, name, message) " + 
-                                "VALUES ($1, $2, $3) " +
-                                "RETURNING created_at",
-                                [sayakaId, sayakaName, resultText] );
-            
-            await sleepRandom();
-            broadcast({
-                type: "chat",
-                visitorId: sayakaId,
-                userName: sayakaName,
-                message: resultText,
-                createdAt: savedData.rows[0].created_at
-            });
-
-          }
+          await generateAiText();
             
         } catch (err) {
             console.error(err);
