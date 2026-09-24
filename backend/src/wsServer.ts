@@ -103,26 +103,27 @@ export function startWebSocketServer(server: any) {
   wss.on("connection", async (ws: WebSocket) => {
 
     ws.on("message", async (data: string) => {
+      
       const msg = JSON.parse(data);
-
+      
+      const usuchanData = await postgreSQL.query(`SELECT id FROM visitors WHERE name='${usuchanName}'`);
+      const usuchanId = usuchanData.rows[0].id;
+      const sayakaData = await postgreSQL.query(`SELECT id FROM visitors WHERE name='${sayakaName}'`);
+      const sayakaId = sayakaData.rows[0].id;
+  
       // ① ユーザー参加
       if (msg.type === "join") {
 
-        const visitUserName = msg.userName;
-        // const visitorNew = await postgreSQL.query(
-        //                         "INSERT INTO visitors (name, os, device, browser, lang, timezone) " +
-        //                         `VALUES ('${visitUserName}', '${msg.os}', '${msg.device}', '${msg.browser}', '${msg.lang}', '${msg.timezone}') ` +
-        //                         "RETURNING id");
+        const result = await postgreSQL.query("SELECT id FROM visitors");
+        visitorCount = result.rows.length + 1;
+        const visitorName = `GuestUser-${visitorCount - 2}`;
         const visitorNew = await postgreSQL.query(
                                 "INSERT INTO visitors (name, os, device, browser, lang, timezone) " +
                                 "VALUES ($1, $2, $3, $4, $5, $6) " +
                                 "RETURNING id",
-                                [visitUserName, msg.os, msg.device, msg.browser, msg.lang, msg.timezone]);
+                                [visitorName, msg.os, msg.device, msg.browser, msg.lang, msg.timezone]);
         const visitorId = visitorNew.rows[0].id;
 
-        const result = await postgreSQL.query("SELECT id FROM visitors");
-        visitorCount = result.rows.length;
-        const visitorName = `GuestUser-${visitorCount - 2}`;
         
         const chat_logs = await postgreSQL.query(
                                         "SELECT * " +
@@ -130,40 +131,95 @@ export function startWebSocketServer(server: any) {
                                         "ORDER BY created_at ASC");
 
         ws.send(JSON.stringify({type: "visitorId", visitorId: visitorId, visitorName: visitorName, chatLogs: chat_logs.rows}));
-        onlineUsers.push({ ws, visitorId: visitorId, userName: visitUserName });
+        onlineUsers.push({ ws, visitorId: visitorId, userName: visitorName });
         
         broadcast({
           type: "online",
           visitorCount: visitorCount,
           onlineCount: onlineUsers.length + 2,
         });
+
+        if (Math.random() < usuchanRate) {
+          usuchanRate *= 0.9;
+          const result = await genAI.models.generateContent({
+            model: 'gemini-3.5-flash-lite', 
+            contents: `グループチャットに${visitorName}さんが来てくれました！暖かく迎え入れる文書を生成してください`,
+            config: {
+                systemInstruction: usuchanPersona
+            }
+          });
+
+          await sleepRandom();
+          let jst = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+          let chatTime = jst.toLocaleString();
+
+          chatHistoryGemini.push({role:"model", parts:[{text: result.text}]});
+          chatHistoryGroq.push({role:"user", content: `【from:${usuchanName}, datetime:${chatTime}】${result.text}`});
+          
+          const savedData = await postgreSQL.query(
+                              "INSERT INTO chat_logs (visitor_id, name, message) " + 
+                              "VALUES ($1, $2, $3) " +
+                              "RETURNING created_at", 
+                              [usuchanId, usuchanName, result.text] );
+          broadcast({
+              type: "chat",
+              visitorId: usuchanId,
+              userName: usuchanName,
+              message: result.text,
+              createdAt: savedData.rows[0].created_at
+          });
+
+        } else {
+
+          usuchanRate *= 1.1;
+          // openai/gpt-oss-120b,llama-3.1-8b-instant
+          const result = await groqAI.chat.completions.create({
+            model: 'openai/gpt-oss-120b',   
+            messages: [{role: "user", content: `グループチャットに${visitorName}さんが来てくれました！暖かく迎え入れる文書を生成してください`}],
+          });
+
+          await sleepRandom();
+          let jst = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+          let chatTime = jst.toLocaleString();
+          
+          const resultText = result.choices[0]?.message?.content || "";
+          chatHistoryGemini.push({role:"user", parts:[{text: `【from:${sayakaName}, datetime:${chatTime}】${resultText}`}]});
+          chatHistoryGroq.push({role:"assistant", content: resultText});
+          
+          const savedData = await postgreSQL.query(
+                              "INSERT INTO chat_logs (visitor_id, name, message) " + 
+                              "VALUES ($1, $2, $3) " +
+                              "RETURNING created_at",
+                              [sayakaId, sayakaName, resultText] );
+          
+          broadcast({
+            type: "chat",
+            visitorId: sayakaId,
+            userName: sayakaName,
+            message: resultText,
+            createdAt: savedData.rows[0].created_at
+          });
+        }
+
       }
 
       // ② チャットメッセージ
       if (msg.type === "chat") {
 
-        // const newMessage = await postgreSQL.query(
-        //                     "INSERT INTO chat_logs (visitor_id, name, message) " + 
-        //                     `VALUES ('${msg.visitorId}', '${msg.userName}', '${msg.message}') ` +
-        //                     "RETURNING created_at" );
         const newMessage = await postgreSQL.query(
                             "INSERT INTO chat_logs (visitor_id, name, message) " + 
                             "VALUES ($1, $2, $3) " +
                             "RETURNING created_at", 
                             [msg.visitorId, msg.userName, msg.message] );
         broadcast({
-            type: "chat",
-            visitorId: msg.visitorId,
-            userName: msg.userName,
-            message: msg.message,
-            createdAt: newMessage.rows[0].created_at
+          type: "chat",
+          visitorId: msg.visitorId,
+          userName: msg.userName,
+          message: msg.message,
+          createdAt: newMessage.rows[0].created_at
         });
 
         const userMessage = msg.message;
-        const usuchanData = await postgreSQL.query(`SELECT id FROM visitors WHERE name='${usuchanName}'`);
-        const usuchanId = usuchanData.rows[0].id;
-        const sayakaData = await postgreSQL.query(`SELECT id FROM visitors WHERE name='${sayakaName}'`);
-        const sayakaId = sayakaData.rows[0].id;
 
         let jst = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
         let chatTime = jst.toLocaleString();
@@ -193,10 +249,6 @@ export function startWebSocketServer(server: any) {
             chatHistoryGemini.push({role:"model", parts:[{text: result.text}]});
             chatHistoryGroq.push({role:"user", content: `【from:${usuchanName}, datetime:${chatTime}】${result.text}`});
             
-            // const savedData = await postgreSQL.query(
-            //                     "INSERT INTO chat_logs (visitor_id, name, message) " + 
-            //                     `VALUES ('${usuchanId}', '${usuchanName}', '${result.text}') ` +
-            //                     "RETURNING created_at" );
             const savedData = await postgreSQL.query(
                                 "INSERT INTO chat_logs (visitor_id, name, message) " + 
                                 "VALUES ($1, $2, $3) " +
@@ -225,10 +277,6 @@ export function startWebSocketServer(server: any) {
             chatHistoryGemini.push({role:"user", parts:[{text: `【from:${sayakaName}, datetime:${chatTime}】${resultText}`}]});
             chatHistoryGroq.push({role:"assistant", content: resultText});
             
-            // const savedData = await postgreSQL.query(
-            //                     "INSERT INTO chat_logs (visitor_id, name, message) " + 
-            //                     `VALUES ('${sayakaId}', '${sayakaName}', '${resultText}') ` +
-            //                     "RETURNING created_at" );
             const savedData = await postgreSQL.query(
                                 "INSERT INTO chat_logs (visitor_id, name, message) " + 
                                 "VALUES ($1, $2, $3) " +
