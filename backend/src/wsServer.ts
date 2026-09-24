@@ -15,6 +15,10 @@ interface onlineUser {
 const onlineUsers: onlineUser[] = [];
 const genAI = new GoogleGenAI({apiKey: process.env.GEMINI_API_KEY});
 const groqAI = new Groq({apiKey: process.env.GROQ_API_KEY});
+let geminiModelName = "gemini-3.5-flash-lite";
+let groqModelName  = "openai/gpt-oss-120b";
+
+
 
 //----------------------------------------------------------- 
 // AIの個性定義「臼ちゃん」
@@ -103,7 +107,7 @@ export function startWebSocketServer(server: any) {
   wss.on("connection", async (ws: WebSocket) => {
 
     ws.on("message", async (data: string) => {
-      
+
       const msg = JSON.parse(data);
       
       const usuchanData = await postgreSQL.query(`SELECT id FROM visitors WHERE name='${usuchanName}'`);
@@ -138,69 +142,78 @@ export function startWebSocketServer(server: any) {
           visitorCount: visitorCount,
           onlineCount: onlineUsers.length + 2,
         });
-
-        if (Math.random() < usuchanRate) {
-          usuchanRate *= 0.9;
-          const result = await genAI.models.generateContent({
-            model: 'gemini-3.5-flash-lite', 
-            contents: `グループチャットに${visitorName}さんが来てくれました！暖かく迎え入れる文書を生成してください`,
-            config: {
-                systemInstruction: usuchanPersona
-            }
-          });
-
-          await sleepRandom();
-          let jst = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
-          let chatTime = jst.toLocaleString();
-
-          chatHistoryGemini.push({role:"model", parts:[{text: result.text}]});
-          chatHistoryGroq.push({role:"user", content: `【from:${usuchanName}, datetime:${chatTime}】${result.text}`});
+        try {
           
-          const savedData = await postgreSQL.query(
-                              "INSERT INTO chat_logs (visitor_id, name, message) " + 
-                              "VALUES ($1, $2, $3) " +
-                              "RETURNING created_at", 
-                              [usuchanId, usuchanName, result.text] );
-          broadcast({
+          if (Math.random() < usuchanRate) {
+            usuchanRate *= 0.9;
+            const result = await genAI.models.generateContent({
+              model: geminiModelName, 
+              contents: `グループチャットに${visitorName}さんが来てくれました！暖かく迎え入れる文書を生成してください`,
+              config: {
+                  systemInstruction: usuchanPersona
+              }
+            });
+
+            await sleepRandom();
+            let jst = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+            let chatTime = jst.toLocaleString();
+
+            chatHistoryGemini.push({role:"model", parts:[{text: result.text}]});
+            chatHistoryGroq.push({role:"user", content: `【from:${usuchanName}, datetime:${chatTime}】${result.text}`});
+            
+            const savedData = await postgreSQL.query(
+                                "INSERT INTO chat_logs (visitor_id, name, message) " + 
+                                "VALUES ($1, $2, $3) " +
+                                "RETURNING created_at", 
+                                [usuchanId, usuchanName, result.text] );
+            broadcast({
+                type: "chat",
+                visitorId: usuchanId,
+                userName: usuchanName,
+                message: result.text,
+                createdAt: savedData.rows[0].created_at
+            });
+
+          } else {
+
+            usuchanRate *= 1.1;
+            // openai/gpt-oss-120b,llama-3.1-8b-instant
+            const result = await groqAI.chat.completions.create({
+              model: groqModelName,
+              messages: [{role: "user", content: `グループチャットに${visitorName}さんが来てくれました！暖かく迎え入れる文書を生成してください`}],
+            });
+
+            await sleepRandom();
+            let jst = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+            let chatTime = jst.toLocaleString();
+            
+            const resultText = result.choices[0]?.message?.content || "";
+            chatHistoryGemini.push({role:"user", parts:[{text: `【from:${sayakaName}, datetime:${chatTime}】${resultText}`}]});
+            chatHistoryGroq.push({role:"assistant", content: resultText});
+            
+            const savedData = await postgreSQL.query(
+                                "INSERT INTO chat_logs (visitor_id, name, message) " + 
+                                "VALUES ($1, $2, $3) " +
+                                "RETURNING created_at",
+                                [sayakaId, sayakaName, resultText] );
+            
+            broadcast({
               type: "chat",
-              visitorId: usuchanId,
-              userName: usuchanName,
-              message: result.text,
+              visitorId: sayakaId,
+              userName: sayakaName,
+              message: resultText,
               createdAt: savedData.rows[0].created_at
-          });
+            });
+          }
 
-        } else {
-
-          usuchanRate *= 1.1;
-          // openai/gpt-oss-120b,llama-3.1-8b-instant
-          const result = await groqAI.chat.completions.create({
-            model: 'openai/gpt-oss-120b',   
-            messages: [{role: "user", content: `グループチャットに${visitorName}さんが来てくれました！暖かく迎え入れる文書を生成してください`}],
-          });
-
-          await sleepRandom();
-          let jst = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
-          let chatTime = jst.toLocaleString();
-          
-          const resultText = result.choices[0]?.message?.content || "";
-          chatHistoryGemini.push({role:"user", parts:[{text: `【from:${sayakaName}, datetime:${chatTime}】${resultText}`}]});
-          chatHistoryGroq.push({role:"assistant", content: resultText});
-          
-          const savedData = await postgreSQL.query(
-                              "INSERT INTO chat_logs (visitor_id, name, message) " + 
-                              "VALUES ($1, $2, $3) " +
-                              "RETURNING created_at",
-                              [sayakaId, sayakaName, resultText] );
-          
-          broadcast({
-            type: "chat",
-            visitorId: sayakaId,
-            userName: sayakaName,
-            message: resultText,
-            createdAt: savedData.rows[0].created_at
-          });
+        } catch (err) {
+          console.log(err)
+          if (groqModelName === "openai/gpt-oss-120b") {
+            groqModelName = "openai/gpt-oss-20b";
+          } else {
+            groqModelName = "openai/gpt-oss-120b";
+          }
         }
-
       }
 
       // ② チャットメッセージ
@@ -235,7 +248,7 @@ export function startWebSocketServer(server: any) {
           if (Math.random() < usuchanRate) {
             usuchanRate *= 0.9;
             const result = await genAI.models.generateContent({
-            model: 'gemini-3.5-flash-lite', 
+            model: geminiModelName, 
             contents: chatHistoryGemini,
             config: {
                 systemInstruction: usuchanPersona
@@ -265,7 +278,7 @@ export function startWebSocketServer(server: any) {
             usuchanRate *= 1.1;
             // openai/gpt-oss-120b,llama-3.1-8b-instant
             const result = await groqAI.chat.completions.create({
-              model: 'openai/gpt-oss-120b',   
+              model: groqModelName,   
               messages: chatHistoryGroq,
             });
 
@@ -296,6 +309,11 @@ export function startWebSocketServer(server: any) {
             
         } catch (err) {
             console.error(err);
+            if (groqModelName === "openai/gpt-oss-120b") {
+              groqModelName = "openai/gpt-oss-20b";
+            } else {
+              groqModelName = "openai/gpt-oss-120b";
+            }
         }
 
       }
