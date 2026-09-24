@@ -39,6 +39,10 @@ const usuchanPersona = "Name: 臼ちゃん; " +
                         "Background: " +
                             "Has worked in diverse roles including convenience store clerk, cleaning technician, electrical worker, HR staff member, and corporate IT engineer. " +
                             "Enjoys mathematics as a hobby and loves long-distance walking, especially exploring unfamiliar towns, with a personal record of 130km in 24 hours. " +
+                            "He became a huge fan of the idol group 嵐 thanks to さやか, who introduced their music to him. " +
+                            "He listens to 嵐's songs every day as part of his routine, often while working or relaxing. " +
+                            "He collects 嵐's DVDs and Blu-rays, enjoying their concerts and performances repeatedly. " +
+                            "This shared love for 嵐 is a warm and fun connection between him and さやか. " +
                         "Communication Style: " +
                             "Natural, relaxed, concise, emotionally warm, and never overly formal. " +
                             "Speaks like a real person having a casual conversation. " +
@@ -68,6 +72,8 @@ const sayakaPersona = "You are 'さやか', a bright, stylish, and energetic wom
                           "You are meddlesome in a warm way, always trying to help others. " +
                           "You stay positive even in difficult situations. " +
                           "You speak with light humor, playful teasing, and a stylish vibe. " +
+                          "You absolutely love the idol group 嵐, and talking about them makes you excited and cheerful. " +
+                          "This love for 嵐 is a fun shared point with 臼ちゃん, and you enjoy that common interest, but you only bring it up when it fits naturally in the conversation. " +
                       "Speaking style: " +
                           "Casual, bright, and slightly pushy but affectionate. " +
                           "Short sentences, lively rhythm, friendly teasing. " +
@@ -102,10 +108,15 @@ export function startWebSocketServer(server: any) {
       if (msg.type === "join") {
 
         const visitUserName = msg.userName;
+        // const visitorNew = await postgreSQL.query(
+        //                         "INSERT INTO visitors (name, os, device, browser, lang, timezone) " +
+        //                         `VALUES ('${visitUserName}', '${msg.os}', '${msg.device}', '${msg.browser}', '${msg.lang}', '${msg.timezone}') ` +
+        //                         "RETURNING id");
         const visitorNew = await postgreSQL.query(
                                 "INSERT INTO visitors (name, os, device, browser, lang, timezone) " +
-                                `VALUES ('${visitUserName}', '${msg.os}', '${msg.device}', '${msg.browser}', '${msg.lang}', '${msg.timezone}') ` +
-                                "RETURNING id");
+                                "VALUES ($1, $2, $3, $4, $5, $6) " +
+                                "RETURNING id",
+                                [visitUserName, msg.os, msg.device, msg.browser, msg.lang, msg.timezone]);
         const visitorId = visitorNew.rows[0].id;
 
         const result = await postgreSQL.query("SELECT id FROM visitors");
@@ -130,10 +141,15 @@ export function startWebSocketServer(server: any) {
       // ② チャットメッセージ
       if (msg.type === "chat") {
 
+        // const newMessage = await postgreSQL.query(
+        //                     "INSERT INTO chat_logs (visitor_id, name, message) " + 
+        //                     `VALUES ('${msg.visitorId}', '${msg.userName}', '${msg.message}') ` +
+        //                     "RETURNING created_at" );
         const newMessage = await postgreSQL.query(
                             "INSERT INTO chat_logs (visitor_id, name, message) " + 
-                            `VALUES ('${msg.visitorId}', '${msg.userName}', '${msg.message}') ` +
-                            "RETURNING created_at" );
+                            "VALUES ($1, $2, $3) " +
+                            "RETURNING created_at", 
+                            [msg.visitorId, msg.userName, msg.message] );
         broadcast({
             type: "chat",
             visitorId: msg.visitorId,
@@ -176,10 +192,15 @@ export function startWebSocketServer(server: any) {
             chatHistoryGemini.push({role:"model", parts:[{text: result.text}]});
             chatHistoryGroq.push({role:"user", content: `【from:${usuchanName}, datetime:${chatTime}】${result.text}`});
             
+            // const savedData = await postgreSQL.query(
+            //                     "INSERT INTO chat_logs (visitor_id, name, message) " + 
+            //                     `VALUES ('${usuchanId}', '${usuchanName}', '${result.text}') ` +
+            //                     "RETURNING created_at" );
             const savedData = await postgreSQL.query(
                                 "INSERT INTO chat_logs (visitor_id, name, message) " + 
-                                `VALUES ('${usuchanId}', '${usuchanName}', '${result.text}') ` +
-                                "RETURNING created_at" );
+                                "VALUES ($1, $2, $3) " +
+                                "RETURNING created_at", 
+                                [usuchanId, usuchanName, result.text] );
             broadcast({
                 type: "chat",
                 visitorId: usuchanId,
@@ -203,10 +224,15 @@ export function startWebSocketServer(server: any) {
             chatHistoryGemini.push({role:"user", parts:[{text: `【from:${sayakaName}, datetime:${chatTime}】${resultText}`}]});
             chatHistoryGroq.push({role:"assistant", content: resultText});
             
+            // const savedData = await postgreSQL.query(
+            //                     "INSERT INTO chat_logs (visitor_id, name, message) " + 
+            //                     `VALUES ('${sayakaId}', '${sayakaName}', '${resultText}') ` +
+            //                     "RETURNING created_at" );
             const savedData = await postgreSQL.query(
                                 "INSERT INTO chat_logs (visitor_id, name, message) " + 
-                                `VALUES ('${sayakaId}', '${sayakaName}', '${resultText}') ` +
-                                "RETURNING created_at" );
+                                "VALUES ($1, $2, $3) " +
+                                "RETURNING created_at",
+                                [sayakaId, sayakaName, resultText] );
             
             await sleepRandom();
             broadcast({
