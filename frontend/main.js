@@ -5,7 +5,9 @@ const online = document.getElementById("online");
 const editor = document.getElementById("editor");
 const sendBtn = document.getElementById("sendBtn");
 
-const userName = "GuestUser"; // 本来はログインユーザー名など
+let userName = "GuestUser"; 
+const usuchanName = "臼ちゃん";
+const sayakaName = "さやか";
 
 ws.onopen = () => {
   const info = getVisitorInfo();
@@ -34,14 +36,17 @@ ws.onmessage = (event) => {
 
     let html = "";
     if (msg.visitorId === localStorage.getItem("visitorId")) {
-      html = `<div class="me name" visitorid="${msg.visitorId}">${msg.userName}（あなた）：${msg.createdAt}</div>` +
-              `<div class="me message-text">${msg.message.replaceAll("\n", "<br>")}</div>`;
-    } else if (msg.userName === "臼ちゃん") {
-      html = `<div class="usuchan name" visitorid="${msg.visitorId}">${msg.userName}：${msg.createdAt}</div>` +
-              `<div class="usuchan message-text">${msg.message.replaceAll("\n", "<br>")}</div>`;
+      html = `<div class="me name" visitorid="${msg.visitorId}">${msg.userName}（あなた）：${utc2jst(msg.createdAt)}</div>` +
+              `<div class="me message-text">${msg.message.replaceAll("\n\n", "<br>").replaceAll("\n", "<br>")}</div>`;
+    } else if (msg.userName === usuchanName) {
+      html = `<div class="usuchan name" visitorid="${msg.visitorId}">${msg.userName}：${utc2jst(msg.createdAt)}</div>` +
+              `<div class="usuchan message-text">${msg.message.replaceAll("\n\n", "<br>").replaceAll("\n", "<br>")}</div>`;
+    } else if (msg.userName === sayakaName) {
+      html = `<div class="sayaka name" visitorid="${msg.visitorId}">${msg.userName}：${utc2jst(msg.createdAt)}</div>` +
+              `<div class="sayaka message-text">${msg.message.replaceAll("\n\n", "<br>").replaceAll("\n", "<br>")}</div>`;
     } else {
-      html = `<div class="other name" visitorid="${msg.visitorId}">${msg.userName}：${msg.createdAt}</div>` +
-              `<div class="other message-text">${msg.message.replaceAll("\n", "<br>")}</div>`;
+      html = `<div class="other name" visitorid="${msg.visitorId}">${msg.userName}：${utc2jst(msg.createdAt)}</div>` +
+              `<div class="other message-text">${msg.message.replaceAll("\n\n", "<br>").replaceAll("\n", "<br>")}</div>`;
     }
 
     const div = document.createElement("div");
@@ -56,16 +61,20 @@ ws.onmessage = (event) => {
   if (msg.type === "visitorId") {
     const visitorId = msg.visitorId;
     localStorage.setItem("visitorId", visitorId);
+    userName = msg.visitorName;
     
     msg.chatLogs.forEach(row => {
 
       let html = "";
-      if (row.name === "臼ちゃん") {
+      if (row.name === usuchanName) {
         html = `<div class="usuchan name" visitorid="${row.visitor_id}">${row.name}：${row.created_at}</div>` +
-                `<div class="usuchan message-text">${row.message.replaceAll("\n", "<br>")}</div>`;
+                `<div class="usuchan message-text">${row.message.replaceAll("\n\n", "<br>").replaceAll("\n", "<br>")}</div>`;
+      } else if (row.name === sayakaName) {
+        html = `<div class="sayaka name" visitorid="${row.visitor_id}">${row.name}：${row.created_at}</div>` +
+                `<div class="sayaka message-text">${row.message.replaceAll("\n\n", "<br>").replaceAll("\n", "<br>")}</div>`;
       } else {
         html = `<div class="other name" visitorid="${row.visitor_id}">${row.name}：${row.created_at}</div>` +
-                `<div class="other message-text">${row.message.replaceAll("\n", "<br>")}</div>`;
+                `<div class="other message-text">${row.message.replaceAll("\n\n", "<br>").replaceAll("\n", "<br>")}</div>`;
       }
 
       const div = document.createElement("div");
@@ -100,6 +109,10 @@ editor.addEventListener("keydown", (e) => {
   }
 });
 
+
+function utc2jst(utc) {
+  return new Date(utc).toLocaleString("ja-JP", {timeZone: "Asia/Tokyo"});
+}
 
 function getVisitorInfo() {
   const uaData = navigator.userAgentData;

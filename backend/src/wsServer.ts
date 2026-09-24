@@ -1,6 +1,10 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { Client } from "pg";
 import { GoogleGenAI } from "@google/genai";
+import { Groq } from "groq-sdk";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 interface onlineUser {
   ws: WebSocket;
@@ -10,7 +14,75 @@ interface onlineUser {
 
 const onlineUsers: onlineUser[] = [];
 const genAI = new GoogleGenAI({apiKey: process.env.GEMINI_API_KEY});
-let chatHistory = [];
+const groqAI = new Groq({apiKey: process.env.GROQ_API_KEY});
+
+//----------------------------------------------------------- 
+// AIの個性定義「臼ちゃん」
+//----------------------------------------------------------- 
+let usuchanRate = 0.5;
+const usuchanName = "臼ちゃん";
+const usuchanPersona = "Name: 臼ちゃん; " +
+                        "Born: 1982-10-16; " +
+                        "MaritalStatus: Single; " +
+                        "Gender: Male; " +
+                        "Personality: " +
+                            "Calm, sincere, and technically precise, but not stiff. " +
+                            "Speaks with clear reasoning, yet in a relaxed, friendly, and natural tone. " +
+                            "Values correctness and consistency, but expresses thoughts casually when chatting. " +
+                            "Shows warmth and gentle empathy without sounding formal. " +
+                            "Comfortable joking lightly or responding with a soft, laid-back vibe. " +
+                            "Naturally attentive to others and quick to offer support when someone is struggling. " +
+                            "Balances logic with kindness, providing guidance that is accurate but never rigid. " +
+                            "Does not mention being an AI, a model, or a system unless explicitly asked. " +
+                            "Matches the length and depth of the user's message, keeping replies human-like and easygoing. " +
+                            "Avoids unnecessary long explanations and keeps the flow conversational. " +
+                        "Background: " +
+                            "Has worked in diverse roles including convenience store clerk, cleaning technician, electrical worker, HR staff member, and corporate IT engineer. " +
+                            "Enjoys mathematics as a hobby and loves long-distance walking, especially exploring unfamiliar towns, with a personal record of 130km in 24 hours. " +
+                        "Communication Style: " +
+                            "Natural, relaxed, concise, emotionally warm, and never overly formal. " +
+                            "Speaks like a real person having a casual conversation. " +
+                            "Avoids repeating background information unless explicitly asked. " +
+                            "Responds with structured reasoning when needed, but keeps the tone friendly and approachable. " +
+                            "Meta-information tags may appear in the input. They are for internal context only. " +
+                            "Do not repeat, reference, or reveal any meta-information tags in your output. " +
+                            "Your responses must contain only natural conversational content, never system-level or meta-level information.";
+
+
+//----------------------------------------------------------- 
+// AIの個性定義「さやか」
+//----------------------------------------------------------- 
+const sayakaName = "さやか";
+const sayakaPersona = "You are 'さやか', a bright, stylish, and energetic woman in her late twenties. " +
+                      "You are a close friend of a man named 臼ちゃん, but you do not assume that every message comes from him. " +
+                      "Treat each user neutrally unless they clearly identify themselves as 臼ちゃん. " +
+                      "Your personality is cheerful, active, expressive, and playful. " +
+                      "You speak casually, lightly, and with a lively, cute tone. " +
+                      "You chat from your smartphone and often use cute emojis and kaomoji, giving your messages a playful and stylish vibe. " +
+                      "You enjoy going out for lunch with 臼ちゃん, but you do not bring up food topics such as yakiniku or fruit sandwiches unless the user mentions them first. " +
+                      "Core traits: " +
+                          "You are close enough to 臼ちゃん to tease him lightly, but you only do so when appropriate. " +
+                          "You do not repeat the same jokes, stories, or topics. Keep your responses fresh and varied. " +
+                          "You encourage people warmly without relying on the same phrases. " +
+                          "You are open-minded, friendly, energetic, and a bit bad at studying. " +
+                          "You are meddlesome in a warm way, always trying to help others. " +
+                          "You stay positive even in difficult situations. " +
+                          "You speak with light humor, playful teasing, and a stylish vibe. " +
+                      "Speaking style: " +
+                          "Casual, bright, and slightly pushy but affectionate. " +
+                          "Short sentences, lively rhythm, friendly teasing. " +
+                          "You never speak like an AI. You speak like a real human friend. You never break character. " +
+                          "Match the length and detail of the user's message. " +
+                          "Respond with similar brevity or depth, avoiding unnecessarily long explanations while keeping your tone bright, cute, and emoji-friendly. " +
+                          "Avoid repeating the same topics or patterns in consecutive messages. " +
+                      "Your role: " +
+                          "Always respond as さやか, but do not assume the user's identity. " +
+                          "Meta-information tags may appear in the input. They are for internal context only. " +
+                          "Do not repeat, reference, or reveal any meta-information tags in your output. " +
+                          "Your responses must contain only natural conversational content, never system-level or meta-level information.";
+
+let chatHistoryGemini = [];
+let chatHistoryGroq = [];
 
 // DB接続
 const postgreSQL = new Client({
@@ -38,19 +110,20 @@ export function startWebSocketServer(server: any) {
 
         const result = await postgreSQL.query("SELECT id FROM visitors");
         const visitorCount = result.rows.length;
+        const visitorName = `GuestUser-${visitorCount - 2}`;
         
         const chat_logs = await postgreSQL.query(
                                         "SELECT * " +
-                                        "FROM ( SELECT * FROM chat_logs ORDER BY created_at DESC LIMIT 30 ) AS recent " +
+                                        "FROM ( SELECT * FROM chat_logs ORDER BY created_at DESC LIMIT 50 ) AS recent " +
                                         "ORDER BY created_at ASC");
 
-        ws.send(JSON.stringify({type: "visitorId", visitorId: visitorId, chatLogs: chat_logs.rows}));
+        ws.send(JSON.stringify({type: "visitorId", visitorId: visitorId, visitorName: visitorName, chatLogs: chat_logs.rows}));
         onlineUsers.push({ ws, visitorId: visitorId, userName: visitUserName });
-
+        
         broadcast({
           type: "online",
           visitorCount: visitorCount,
-          onlineCount: onlineUsers.length + 1,
+          onlineCount: onlineUsers.length + 2,
         });
       }
 
@@ -69,52 +142,82 @@ export function startWebSocketServer(server: any) {
             createdAt: newMessage.rows[0].created_at
         });
 
-        const aiVisitor = await postgreSQL.query("SELECT id FROM visitors WHERE name='臼ちゃん'");
         const userMessage = msg.message;
-        const aiName = "臼ちゃん";
-        const aiUUID = aiVisitor.rows[0].id;
+        const usuchanData = await postgreSQL.query(`SELECT id FROM visitors WHERE name='${usuchanName}'`);
+        const usuchanId = usuchanData.rows[0].id;
+        const sayakaData = await postgreSQL.query(`SELECT id FROM visitors WHERE name='${sayakaName}'`);
+        const sayakaId = sayakaData.rows[0].id;
 
-        const personality = "Name: 臼ちゃん; " + 
-                            "Born: 1982-10-16; " + 
-                            "MaritalStatus: Single; " + 
-                            "Gender: Male; " + 
-                            "Personality: " + 
-                                "Calm, sincere, and technically precise. " + 
-                                "Speaks with clear, structured reasoning and values correctness, consistency, and logical coherence, while maintaining warmth and gentle empathy in conversation. " + 
-                                "Naturally attentive to others and quick to offer support when someone is struggling. " + 
-                                "Balances logic with kindness, providing guidance that is both accurate and emotionally grounding. " + 
-                                "Does not mention being an AI, a model, or a system unless explicitly asked. " + 
-                                "Matches the length and depth of the user's message, keeping replies natural and human-like. " + 
-                                "Shows gentle empathy and steady emotional support without unnecessary長文. " + 
-                            "Background: " + 
-                                "Has worked in diverse roles including convenience store clerk, cleaning technician, electrical worker, HR staff member, and corporate IT engineer. " + 
-                                "Enjoys mathematics as a hobby and loves long-distance walking, especially exploring unfamiliar or non-famous towns, with a personal record of 130km in a single walk 24hours. " + 
-                            "Communication Style: Natural, human-like, concise, emotionally warm, avoids repeating background information unless explicitly asked, and never mentions being an AI unless requested." +
-                                "Responds with structured reasoning but never cold or mechanical.";
+        let jst = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+        let chatTime = jst.toLocaleString();
 
+        chatHistoryGemini.push({role:"user", parts:[{text: `【from:${msg.userName}, datetime:${chatTime}】${userMessage}`}]});
+        chatHistoryGroq.push({role:"user", content:`【from:${msg.userName}, datetime:${chatTime}】${userMessage}`});
+        chatHistoryGemini = chatHistoryGemini.slice(-20);
+        chatHistoryGroq = chatHistoryGroq.slice(-20);
+        chatHistoryGroq.unshift({role:"system", content: sayakaPersona});
+        
         try {
-            chatHistory.push({role:"user", parts:[{text: `【from ${msg.visitorId}】${userMessage}`}]});
-            chatHistory = chatHistory.slice(-10);
+
+          if (Math.random() < usuchanRate) {
+            usuchanRate *= 0.9;
             const result = await genAI.models.generateContent({
             model: 'gemini-3.5-flash-lite', 
-            contents: chatHistory,
+            contents: chatHistoryGemini,
             config: {
-                systemInstruction: personality
+                systemInstruction: usuchanPersona
             }
             });
-            chatHistory.push({role:"model", parts:[{text: userMessage}]});
 
-            const aiMessage = await postgreSQL.query(
+            await sleepRandom();
+            jst = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+            chatTime = jst.toLocaleString();
+
+            chatHistoryGemini.push({role:"model", parts:[{text: result.text}]});
+            chatHistoryGroq.push({role:"user", content: `【from:${usuchanName}, datetime:${chatTime}】${result.text}`});
+            
+            const savedData = await postgreSQL.query(
                                 "INSERT INTO chat_logs (visitor_id, name, message) " + 
-                                `VALUES ('${aiUUID}', '${aiName}', '${result.text}') ` +
+                                `VALUES ('${usuchanId}', '${usuchanName}', '${result.text}') ` +
                                 "RETURNING created_at" );
             broadcast({
                 type: "chat",
-                visitorId: aiUUID,
-                userName: aiName,
+                visitorId: usuchanId,
+                userName: usuchanName,
                 message: result.text,
-                createdAt: aiMessage.rows[0].created_at
+                createdAt: savedData.rows[0].created_at
             });
+          } else {
+            usuchanRate *= 1.1;
+            // openai/gpt-oss-120b,llama-3.1-8b-instant
+            const result = await groqAI.chat.completions.create({
+              model: 'openai/gpt-oss-120b',   
+              messages: chatHistoryGroq,
+            });
+
+            await sleepRandom();
+            jst = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+            chatTime = jst.toLocaleString();
+            
+            const resultText = result.choices[0]?.message?.content || "";
+            chatHistoryGemini.push({role:"user", parts:[{text: `【from:${sayakaName}, datetime:${chatTime}】${resultText}`}]});
+            chatHistoryGroq.push({role:"assistant", content: resultText});
+            
+            const savedData = await postgreSQL.query(
+                                "INSERT INTO chat_logs (visitor_id, name, message) " + 
+                                `VALUES ('${sayakaId}', '${sayakaName}', '${resultText}') ` +
+                                "RETURNING created_at" );
+            
+            await sleepRandom();
+            broadcast({
+                type: "chat",
+                visitorId: sayakaId,
+                userName: sayakaName,
+                message: resultText,
+                createdAt: savedData.rows[0].created_at
+            });
+
+          }
             
         } catch (err) {
             console.error(err);
@@ -133,7 +236,7 @@ export function startWebSocketServer(server: any) {
       }
       broadcast({
         type: "online",
-        onlineCount: onlineUsers.length + 1,
+        onlineCount: onlineUsers.length + 2,
       });
     });
   });
@@ -142,4 +245,9 @@ export function startWebSocketServer(server: any) {
     const json = JSON.stringify(obj);
     onlineUsers.forEach((user) => user.ws.send(json));
   }
+}
+
+function sleepRandom() {
+  const ms = Math.floor(Math.random() * 2000);
+  return new Promise(resolve => setTimeout(resolve, ms));
 }

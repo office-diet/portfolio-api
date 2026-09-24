@@ -25,8 +25,8 @@ server.listen(port, "0.0.0.0", () => {
   console.log(`Backend running on port ${port}`);
 });
 
-app.get("/api/hello", async (req, res) => {
+app.get("/api/dbinfo", async (req, res) => {
   const visitors = await postgreSQL.query("SELECT * FROM visitors");
   const chat_logs = await postgreSQL.query("SELECT * FROM chat_logs");
-  res.json({visitors: visitors.rows, chat_logs: chat_logs.rows});
+  res.json({ host: "postgreSQL", tables: {visitors: visitors.rows, chat_logs: chat_logs.rows}});
 });

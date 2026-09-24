@@ -8,6 +8,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
+      TZ: Asia/Tokyo
+      PGTZ: Asia/Tokyo
     ports:
       - "5432:5432"
     volumes:
@@ -26,6 +28,8 @@ services:
     environment:
       DB_URL: ${DB_URL}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      TZ: Asia/Tokyo
     depends_on:
       db:
         condition: service_healthy
@@ -35,6 +39,8 @@ services:
     container_name: aichat-frontend
     ports:
       - "8080:80"
+    environment:
+      TZ: Asia/Tokyo
     depends_on:
       - backend
 volumes:
