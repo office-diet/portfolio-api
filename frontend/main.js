@@ -1,4 +1,6 @@
-const ws = new WebSocket("ws://localhost:3000");
+// const ws = new WebSocket("ws://localhost:3000");
+const ws = new WebSocket("ws://groupchat-alb-550437281.ap-northeast-1.elb.amazonaws.com/ws/");
+
 
 const messages = document.getElementById("messages");
 const online = document.getElementById("online");
