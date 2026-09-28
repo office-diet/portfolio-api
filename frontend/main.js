@@ -5,7 +5,7 @@ const online = document.getElementById("online");
 const editor = document.getElementById("editor");
 const sendBtn = document.getElementById("sendBtn");
 
-let userName = "GuestUser"; 
+let visitorName = "GuestUser"; 
 const usuchanName = "臼ちゃん";
 const sayakaName = "さやか";
 
@@ -13,7 +13,7 @@ ws.onopen = () => {
   const info = getVisitorInfo();
   const joinInfo = {
                       type: "join", 
-                      userName: userName,
+                      visitorName: visitorName,
                       browser: info.browser,
                       os: info.os,
                       device: info.device,
@@ -33,26 +33,7 @@ ws.onmessage = (event) => {
 
   // チャットメッセージ
   if (msg.type === "chat") {
-
-    let html = "";
-    if (msg.visitorId === localStorage.getItem("visitorId")) {
-      html = `<div class="me name" visitorid="${msg.visitorId}">${msg.userName}（あなた）：${utc2jst(msg.createdAt)}</div>` +
-              `<div class="me message-text">${msg.message.replaceAll("\n\n", "<br>").replaceAll("\n", "<br>")}</div>`;
-    } else if (msg.userName === usuchanName) {
-      html = `<div class="usuchan name" visitorid="${msg.visitorId}">${msg.userName}：${utc2jst(msg.createdAt)}</div>` +
-              `<div class="usuchan message-text">${msg.message.replaceAll("\n\n", "<br>").replaceAll("\n", "<br>")}</div>`;
-    } else if (msg.userName === sayakaName) {
-      html = `<div class="sayaka name" visitorid="${msg.visitorId}">${msg.userName}：${utc2jst(msg.createdAt)}</div>` +
-              `<div class="sayaka message-text">${msg.message.replaceAll("\n\n", "<br>").replaceAll("\n", "<br>")}</div>`;
-    } else {
-      html = `<div class="other name" visitorid="${msg.visitorId}">${msg.userName}：${utc2jst(msg.createdAt)}</div>` +
-              `<div class="other message-text">${msg.message.replaceAll("\n\n", "<br>").replaceAll("\n", "<br>")}</div>`;
-    }
-
-    const div = document.createElement("div");
-    div.className = "msg";
-    div.innerHTML = html;
-    messages.appendChild(div);
+    renderMessage(msg);
     messages.scrollTop = messages.scrollHeight;
   }
 
@@ -61,39 +42,42 @@ ws.onmessage = (event) => {
   if (msg.type === "visitorId") {
     const visitorId = msg.visitorId;
     localStorage.setItem("visitorId", visitorId);
-    userName = msg.visitorName;
+    visitorName = msg.visitorName;
     
-    msg.chatLogs.forEach(row => {
-
-      let html = "";
-      if (row.name === usuchanName) {
-        html = `<div class="usuchan name" visitorid="${row.visitor_id}">${row.name}：${utc2jst(row.created_at)}</div>` +
-                `<div class="usuchan message-text">${row.message.replaceAll("\n\n", "<br>").replaceAll("\n", "<br>")}</div>`;
-      } else if (row.name === sayakaName) {
-        html = `<div class="sayaka name" visitorid="${row.visitor_id}">${row.name}：${utc2jst(row.created_at)}</div>` +
-                `<div class="sayaka message-text">${row.message.replaceAll("\n\n", "<br>").replaceAll("\n", "<br>")}</div>`;
-      } else {
-        html = `<div class="other name" visitorid="${row.visitor_id}">${row.name}：${utc2jst(row.created_at)}</div>` +
-                `<div class="other message-text">${row.message.replaceAll("\n\n", "<br>").replaceAll("\n", "<br>")}</div>`;
-      }
-
-      const div = document.createElement("div");
-      div.className = "msg";
-      div.innerHTML = html;
-      messages.appendChild(div);
-    });
+    msg.chatLogs.forEach(row => { renderMessage(row); });
     messages.scrollTop = messages.scrollHeight;
-
   }
 
 };
+
+function renderMessage(row) {
+  let html = "";
+  if (row.visitorId === localStorage.getItem("visitorId")) {
+    html = `<div class="me name" visitorid="${row.visitorId}" messageid="${row.messageId}">${row.visitorName}（あなた）：${row.createdAt}</div>` +
+            `<div class="me message-text">${row.message.replaceAll("\n\n", "<br>").replaceAll("\n", "<br>")}</div>`;
+  } else if (row.visitorName === usuchanName) {
+    html = `<div class="usuchan name" visitorid="${row.visitorId}" messageid="${row.messageId}">${row.visitorName}：${row.createdAt}</div>` +
+            `<div class="usuchan message-text">${row.message.replaceAll("\n\n", "<br>").replaceAll("\n", "<br>")}</div>`;
+  } else if (row.visitorName === sayakaName) {
+    html = `<div class="sayaka name" visitorid="${row.visitorId}" messageid="${row.messageId}">${row.visitorName}：${row.createdAt}</div>` +
+            `<div class="sayaka message-text">${row.message.replaceAll("\n\n", "<br>").replaceAll("\n", "<br>")}</div>`;
+  } else {
+    html = `<div class="other name" visitorid="${row.visitorId}" messageid="${row.messageId}">${row.visitorName}：${row.createdAt}</div>` +
+            `<div class="other message-text">${row.message.replaceAll("\n\n", "<br>").replaceAll("\n", "<br>")}</div>`;
+  }
+
+  const div = document.createElement("div");
+  div.className = "msg";
+  div.innerHTML = html;
+  messages.appendChild(div);
+}
 
 sendBtn.onclick = () => {
   if (editor.innerText.trim() !== "") {
     ws.send(JSON.stringify({
       type: "chat",
       visitorId: localStorage.getItem("visitorId"),
-      userName: userName,
+      visitorName: visitorName,
       message: editor.innerText.trim()
     }));
   } 
@@ -108,11 +92,6 @@ editor.addEventListener("keydown", (e) => {
     }
   }
 });
-
-
-function utc2jst(utc) {
-  return new Date(utc).toLocaleString("ja-JP", {timeZone: "Asia/Tokyo"});
-}
 
 function getVisitorInfo() {
   const uaData = navigator.userAgentData;
