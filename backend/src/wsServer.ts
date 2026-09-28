@@ -168,10 +168,6 @@ const sayakaPersona:string = "You are 'さやか', a bright, stylish, and energe
 let chatHistoryGemini = [];
 let chatHistoryGroq =   [];
 let visitorCount:number = 0;
-const firstTimeMessage:string = "匿名グループチャットが開設されました！だれでも参加しやすい雰囲気の短いメッセージを生成してください。";
-chatHistoryGemini.push({role: "user", parts: [{text: firstTimeMessage}]});
-chatHistoryGroq.push({role: "user",   content:       firstTimeMessage  });
-chatHistoryGroq.unshift({role:"system", content: sayakaPersona});
 
 // DB接続
 const postgreSQL = new Client({
@@ -204,21 +200,23 @@ export function startWebSocketServer(server: any) {
           await sleepRandom();
           const chatTime:string = getJstNow();
 
-          chatHistoryGemini.push({role:"model", parts:[{text: result.text}]});
-          chatHistoryGroq.push({role:"user", content: `【from:${usuchanName}, datetime:${chatTime}】${result.text}`});
+          const prefix:string = `【from:${usuchanName}, datetime:${chatTime}】`;
+          const messageText:string = result.text;
+          chatHistoryGemini.push({role:"model", parts:[{text: messageText}]});
+          chatHistoryGroq.push({role:"user", content: `${prefix}${messageText}`});
           
           const savedData = await postgreSQL.query<GetIdCreatedAt>(
                               "INSERT INTO chat_logs (visitor_id, name, message) " + 
                               "VALUES ($1, $2, $3) " +
                               "RETURNING id, created_at", 
-                              [usuchanId, usuchanName, result.text] );
+                              [usuchanId, usuchanName, messageText] );
 
           const newChatReturn:NewChatReturn = {
                                                 type: "chat",
                                                 visitorId: usuchanId,
                                                 visitorName: usuchanName,
                                                 messageId: savedData.rows[0].id,
-                                                message: result.text,
+                                                message: messageText,
                                                 createdAt: utc2jst(savedData.rows[0].created_at)
                                             }
           broadcast(newChatReturn);
@@ -234,9 +232,9 @@ export function startWebSocketServer(server: any) {
 
           await sleepRandom();
           const chatTime:string = getJstNow();
-          
           const resultText:string = result.choices[0]?.message?.content || "";
-          chatHistoryGemini.push({role:"user", parts:[{text: `【from:${sayakaName}, datetime:${chatTime}】${resultText}`}]});
+          const prefix:string = `【from:${sayakaName}, datetime:${chatTime}】`;
+          chatHistoryGemini.push({role:"user", parts:[{text: `${prefix}${resultText}`}]});
           chatHistoryGroq.push({role:"assistant", content: resultText});
           
           const savedData = await postgreSQL.query<GetIdCreatedAt>(
@@ -312,7 +310,10 @@ export function startWebSocketServer(server: any) {
         
         const onlineCount:OnlineCount = { type: "online", visitorCount: visitorCount, onlineCount: onlineUsers.length + 2 }
         broadcast(onlineCount);
-
+        
+        // backendで管理する会話履歴をDB情報で初期化
+        cleanupChatHistory(chatLogs);
+        
         try {
 
         // チャット履歴＋新規入室メンバーへの声掛け依頼
@@ -354,11 +355,14 @@ export function startWebSocketServer(server: any) {
         // チャット履歴を追加
         const userMessage:string = newChat.message;
         const chatTime:string = getJstNow();
-        chatHistoryGemini.push({role:"user", parts:[{text: `【from:${newChat.visitorName}, datetime:${chatTime}】${userMessage}`}]});
-        chatHistoryGroq.push({role:"user", content:`【from:${newChat.visitorName}, datetime:${chatTime}】${userMessage}`});
+        const messageText = `【from:${newChat.visitorName}, datetime:${chatTime}】${userMessage}`;
+        chatHistoryGemini.push({role:"user", parts:[{text: messageText}]});
+        chatHistoryGroq.push({  role:"user",      content: messageText});
         chatHistoryGemini = chatHistoryGemini.slice(-20);
         chatHistoryGroq = chatHistoryGroq.slice(-20);
-        chatHistoryGroq.unshift({role:"system", content: sayakaPersona});
+        if (chatHistoryGroq[0].role !== "system") {
+          chatHistoryGroq.unshift({role:"system", content: sayakaPersona});
+        }
         
         try {
 
@@ -423,4 +427,46 @@ function getJstNow():string {
 // PostgreSQLのTIMESTAMPのUTCをJSTに変換
 function utc2jst(utc:Date):string {
   return new Date(utc.toISOString()).toLocaleString("ja-JP", {timeZone: "Asia/Tokyo"});
+}
+
+// 新規ユーザが入室したタイミングで会話配列を初期化
+function cleanupChatHistory(chatLogs:ChatLogForTS[]):void {
+
+  // 配列を初期化
+  chatHistoryGemini = [];
+  chatHistoryGroq = [];
+
+  // チャット履歴が一切ない場合
+  if (chatLogs.length === 0) {
+    const firstTimeMessage:string = "匿名グループチャットが開設されました！だれでも参加しやすい雰囲気の短いメッセージを生成してください。";
+    chatHistoryGemini.push({role: "user", parts: [{text: firstTimeMessage}]});
+    chatHistoryGroq.push({role: "user",   content:       firstTimeMessage  });
+  
+  // DBより取得した直近のチャットで初期化
+  } else {
+
+    chatLogs.forEach((row:ChatLogForTS) => {
+
+      // AIにはプレフィックスを付けない！
+      const prefix:string = `【from:${row.name}, datetime:${row.createdAt}】`;
+      const messageText:string = row.message;
+      if (row.name === usuchanName) {
+          chatHistoryGemini.push({role:"model", parts:[{text: messageText}]});
+          chatHistoryGroq.push(  {role:"user",       content: `${prefix}${messageText}`});
+      } else if (row.name === sayakaName) {
+          chatHistoryGemini.push({role:"user",  parts:[{text: `${prefix}${messageText}`}]});
+          chatHistoryGroq.push(  {role:"assistant",  content: messageText});
+      } else {
+          chatHistoryGemini.push({role:"user",  parts:[{text: `${prefix}${messageText}`}]});
+          chatHistoryGroq.push(  {role:"user",       content: `${prefix}${messageText}`});
+      }
+
+    });
+  }
+
+  // groqの会話の先頭に「個性」を格納
+  chatHistoryGemini = chatHistoryGemini.slice(-20);
+  chatHistoryGroq = chatHistoryGroq.slice(-20);
+  chatHistoryGroq.unshift({role:"system", content: sayakaPersona});
+
 }

@@ -14,7 +14,7 @@ const postgreSQL = new Client({
 postgreSQL.connect();
 
 const app = express();
-const port = 3000;
+const port:number = 3000;
 app.use(cors());
 app.use(express.json());
 
