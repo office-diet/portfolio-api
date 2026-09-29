@@ -68,7 +68,7 @@ type ChatLogFromSQL = {
 type ChatLogForTS = {
 	id: string;
 	visitorId: string;
-	name: string;
+	visitorName: string;
 	message: string;
 	createdAt: string;
 }
