@@ -96,8 +96,8 @@
     ```
     その他、バックエンドだけ修正した場合はこんな感じ
     ```bash
-    docker-compose build --no-cache backend
-    docker-compose up -d backend
+    docker compose build --no-cache backend
+    docker compose up -d backend
     ```
 4. **アクセス**
     ブラウザで `http://localhost:8080` にアクセス
