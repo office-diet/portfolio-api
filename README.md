@@ -37,8 +37,8 @@
   * PostgreSQLを用いたテーブル設計（`chat_logs`, `visitors`）、インデックス、初期データの構造を定義しています。
 * **[WebSocket 通信仕様書 (WebSocket Specs)](./docs/websocket-specs.md)**
   * クライアント・サーバー間のリアルタイム通信におけるメッセージ型定義（TypeScript）やイベント設計をまとめています。
-* **[簡易版ポートフォリオ・スライド (Google Drive)](https://drive.google.com/file/d/1QVz69x2bxvEy3y62eVaxzeCQg1Fvcegj/view?usp=sharing)**
-  * 本アプリの全体像を説明する資料。リンクからGoogle Drive上のPDFファイルをご覧いただけます。
+* **[簡易版ポートフォリオ・スライド (Google Drive)](https://drive.google.com/file/d/1QVz69x2bxvEy3y62eVaxzeCQg1Fvcegj/view?usp=sharing)**  
+  * 本アプリの全体像を説明する資料。リンクからGoogle Drive上のPDFファイルをご覧いただけます。
 ---
 ## ✨ 主な機能・技術的ハイライト
 
