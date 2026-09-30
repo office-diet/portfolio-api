@@ -27,12 +27,17 @@
 * **データベース:** PostgreSQL
 * **インフラ・デプロイ:** AWS (EC2, ALB), Docker / Docker Compose
 * **外部連携API:** Google Gemini API, Groq API
-
 #### フロントエンド開発（別コンテナにて開発）
 * **フロントエンド:** React, Vite, TypeScript, Chakra UI（別コンテナにて開発）  
 [👉フロントエンド開発リポジトリはこちら](https://github.com/office-diet/portfolio-react-front)
 ---
-
+## 📖 詳細な設計・仕様ドキュメント
+本プロジェクトの内部設計や通信仕様の詳細については、以下のドキュメントをご参照ください。
+* **[データベース設計書 (Database Schema)](./docs/database-schema.md)**
+  * PostgreSQLを用いたテーブル設計（`chat_logs`, `visitors`）、インデックス、初期データの構造を定義しています。
+* **[WebSocket 通信仕様書 (WebSocket Specs)](./docs/websocket-specs.md)**
+  * クライアント・サーバー間のリアルタイム通信におけるメッセージ型定義（TypeScript）やイベント設計をまとめています。
+---
 ## ✨ 主な機能・技術的ハイライト
 
 1. **リアルタイム双方向通信（WebSocket）**
