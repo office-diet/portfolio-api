@@ -12,7 +12,7 @@
 ---
 
 ## 🚀 開発背景・目的
-* **背景:** 単なる静的なCRUDアプリではなく、双方向通信（WebSocket）や外部API連携、複数コンテナによるインフラ構築など、**「動きが多く、実運用を想定したモダンなWebアプリケーション」**の全体像を短期間で習得・実装するために開発しました。
+* **背景:** 単なる静的なCRUDアプリではなく、双方向通信（WebSocket）や外部API連携、複数コンテナによるインフラ構築など、**「動きが多く、実運用を想定したモダンなWebアプリケーション」** の全体像を短期間で習得・実装するために開発しました。
 * **こだわり:** ユーザーがアクセスした際に「常に誰か（またはAI）がいて会話が弾んでいる安心感」を演出しつつ、プロの現場を意識した堅牢なアーキテクチャで構築しています。
 * **学習・開発期間:** 6年前にAWSやHerokuへRuby on Railsアプリをデプロイした経験はあるもののアプリは削除済みで、さらに技術も完全に失念してしまいました。面接時にアピールできるポートフォリオやアプリがないため、シルバーウィークに思い立ちAWS、docker、Node.js、TypeScript、React、Viteの学習を開始。学習・構築・完成まで約11日で完走しました！
 
@@ -27,7 +27,9 @@
 * **データベース:** PostgreSQL
 * **インフラ・デプロイ:** AWS (EC2, ALB), Docker / Docker Compose
 * **外部連携API:** Google Gemini API, Groq API
-* **フロントエンド開発:** React, Vite, TypeScript, Chakra UI（別コンテナにて開発）
+
+#### フロントエンド開発（別コンテナにて開発）
+* **フロントエンド:** React, Vite, TypeScript, Chakra UI（別コンテナにて開発）  
 [👉フロントエンド開発リポジトリはこちら](https://github.com/office-diet/portfolio-react-front)
 ---
 
@@ -56,14 +58,13 @@
  * Docker / Docker Compose がインストールされていること
 
 ### 手順
-1. **リポジトリのクローン**
+1. **リポジトリのクローン**  
    ```bash
    git clone https://github.com/office-diet/portfolio-api.git
    cd portfolio-api
    ```
-2. **環境変数(.env)の設定**
+2. **環境変数(.env)の設定**  
    ルートディレクトリに`.env`ファイルを作成し必要なAPIキーなどを記述してください。
- 
     ```env
     # PostgreSQL
     POSTGRES_USER=sample
