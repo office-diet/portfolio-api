@@ -38,7 +38,7 @@ const postgreSQL = new Client({
 postgreSQL.connect();
 
 export function startWebSocketServer(server: any) {
-  const wss = new WebSocketServer({ server, path: "/ws" });
+  const wss = new WebSocketServer({ server, path: "/ws/" });
 
   wss.on("connection", async (ws: WebSocket) => {
 
