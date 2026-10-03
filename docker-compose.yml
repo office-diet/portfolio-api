@@ -29,6 +29,7 @@ services:
       DB_URL: ${DB_URL}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       GROQ_API_KEY: ${GROQ_API_KEY}
+      POSTMAN_API_KEY: ${POSTMAN_API_KEY}  
       TZ: Asia/Tokyo
     depends_on:
       db:
