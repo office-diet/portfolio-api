@@ -42,16 +42,7 @@ export const publicApi = (postgreSql: Client) => {
             }
 
             // snake to camel
-            const usersResponse:UserResonse[] = users.rows.map((row:UserRow) => ({
-                id: row.id, 
-                userName: row.name, 
-                od: row.os, 
-                device: row.device,
-                browser: row.browser,
-                lang: row.lang,
-                enterAt: utc2jst(row.enter_at),
-                exitAt: utc2jst(row.exit_at)
-            }));
+            const usersResponse:UserResonse[] = users.rows.map((row:UserRow) => usersSnake2Camel(row));
 
             // データ返却
             res.json(usersResponse);    
@@ -95,16 +86,7 @@ export const publicApi = (postgreSql: Client) => {
             }
 
             // snake to camel
-            const usersResponse:UserResonse[] = users.rows.map((row:UserRow) => ({
-                id: row.id, 
-                userName: row.name, 
-                od: row.os, 
-                device: row.device,
-                browser: row.browser,
-                lang: row.lang,
-                enterAt: utc2jst(row.enter_at),
-                exitAt: utc2jst(row.exit_at)
-            }));
+            const usersResponse:UserResonse[] = users.rows.map((row:UserRow) => usersSnake2Camel(row));
 
             res.json(usersResponse);    
         } catch (err) {
@@ -136,14 +118,7 @@ export const publicApi = (postgreSql: Client) => {
 
             // snake to camel
             const messagesResponse:MessageResponse[] = 
-                messages.rows.map((row:MessageRow) => ({
-                    id: row.id,
-                    userId: row.visitor_id, 
-                    userName: row.name, 
-                    message: row.message,
-                    dflag: row.dflag,
-                    createdAt: utc2jst(row.created_at)
-                }));
+                messages.rows.map((row:MessageRow) => messagesSnake2Camel(row));
             
             // データ返却
             res.json(messagesResponse);
@@ -204,14 +179,7 @@ export const publicApi = (postgreSql: Client) => {
 
             // snake to camel
             const messagesResponse:MessageResponse[] = 
-            messages.rows.map((row:MessageRow) => ({
-                    id: row.id,
-                    userId: row.visitor_id, 
-                    userName: row.name, 
-                    message: row.message,
-                    dflag: row.dflag,
-                    createdAt: utc2jst(row.created_at)
-            }));
+                messages.rows.map((row:MessageRow) => messagesSnake2Camel(row));
             
             // データ返却
             res.json(messagesResponse);
@@ -241,5 +209,37 @@ export const publicApi = (postgreSql: Client) => {
             return Math.floor(Number(str))
         } 
     }
+
+    // ----------------------------------
+    // users：PostgreSQLのSnake ⇒ Camel変換
+    // ----------------------------------
+    function usersSnake2Camel(row:UserRow):UserResonse {
+        return {
+                    id: row.id, 
+                    userName: row.name, 
+                    os: row.os, 
+                    device: row.device,
+                    browser: row.browser,
+                    lang: row.lang,
+                    timezone: row.timezone,
+                    enterAt: utc2jst(row.enter_at),
+                    exitAt: utc2jst(row.exit_at)
+                }
+    }
+
+    // ----------------------------------
+    // messages：PostgreSQLのSnake ⇒ Camel変換
+    // ----------------------------------
+    function messagesSnake2Camel(row:MessageRow):MessageResponse {
+        return {
+                    id: row.id,
+                    userId: row.visitor_id, 
+                    userName: row.name, 
+                    message: row.message,
+                    dflag: row.dflag,
+                    createdAt: utc2jst(row.created_at)
+                }
+    }
+
     return router;
 }
