@@ -11,9 +11,9 @@
 * **こだわり:** 実務を想定したエラーハンドリング、およびTypeScriptによる厳密な型定義を実施。  
 今後の機能追加（認証・WS拡張）を見据えた構成。  
 アプリを作るだけではなく、データを使う立場も想定しVBAツールを公開。  
-[👉公開API 通信仕様書 (public api Specs)](./docs/public-api-specs.md)
-[👉Postman公開ドキュメント](https://documenter.getpostman.com/view/58691642/2sBYHNXP2Y)
-[👉APIテスト用エクセルVBAツール](https://drive.google.com/uc?export=download&id=1VLBGY-C8RoiwJNEuWG2SEoAJd-7qmD4b)
+[👉公開API 通信仕様書 (public api Specs)](./docs/public-api-specs.md)  
+[👉Postman公開ドキュメント](https://documenter.getpostman.com/view/58691642/2sBYHNXP2Y)  
+[👉APIテスト用エクセルVBAツール](https://drive.google.com/uc?export=download&id=1VLBGY-C8RoiwJNEuWG2SEoAJd-7qmD4b)  
 
 ---
 
