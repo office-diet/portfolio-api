@@ -27,8 +27,16 @@ CREATE TABLE visitors (
     exit_at     TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+-- users
+CREATE TABLE users (
+    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name        TEXT UNIQUE NOT NULL,
+    email       TEXT UNIQUE NOT NULL,
+    password    TEXT NOT NULL,
+    created_at  TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
 -- 臼ちゃんを初期データとして追加
 INSERT INTO visitors (name, os, device, browser, lang, timezone)
 VALUES ('臼ちゃん', 'Windows', 'PC', 'Chrome', 'ja', 'Asia/Tokyo'),
-('さやか', 'iOS', 'mobile', 'Safari', 'ja', 'Asia/Tokyo')
-;
+('さやか', 'iOS', 'mobile', 'Safari', 'ja', 'Asia/Tokyo');

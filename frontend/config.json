@@ -1,0 +1,7 @@
+{
+  "wsUrl": "ws://groupchat-alb-550437281.ap-northeast-1.elb.amazonaws.com/ws/",
+  "signinUrl": "http://groupchat-alb-550437281.ap-northeast-1.elb.amazonaws.com/api/private/signin",
+  "loginUrl": "http://groupchat-alb-550437281.ap-northeast-1.elb.amazonaws.com/api/private/login",
+  "logoutUrl": "http://groupchat-alb-550437281.ap-northeast-1.elb.amazonaws.com/api/private/logout",
+  "chatUrl": "http://groupchat-alb-550437281.ap-northeast-1.elb.amazonaws.com/api/private/chats"
+}

@@ -73,3 +73,22 @@ export interface OnlineUser {
   visitorId: string;
   visitorName: string;
 }
+
+export type AuthInfo = { 
+  visitorId: string; 
+  visitorName: string 
+};
+
+
+// 編集・削除の配信用の型も追加
+export type ChatEdit = { 
+  type: "chatEdit"; 
+  messageId: string; 
+  message: string; 
+};
+
+export type ChatDelete = { 
+  type: "chatDelete"; 
+  messageId: string ;
+  message: string;
+};

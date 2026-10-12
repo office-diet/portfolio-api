@@ -5,6 +5,8 @@ import http from "http";
 import { startWebSocketServer } from "./wsServer";
 import { Client } from "pg";
 import { publicApi } from "./publicapi/api";
+import { privateApi } from "./privateapi/api";
+import cookieParser from "cookie-parser";
 
 dotenv.config();
 
@@ -16,8 +18,10 @@ postgreSql.connect();
 
 const app = express();
 const port:number = 3000;
-app.use(cors());
+app.use(cors({ origin: true, credentials: true, methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"] }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 const server = http.createServer(app);
 startWebSocketServer(server);
@@ -26,5 +30,6 @@ server.listen(port, "0.0.0.0", () => {
   console.log(`Backend running on port ${port}`);
 });
 
-// 公開API
-app.use("/api/public", publicApi(postgreSql))
+// 公開・非公開API
+app.use("/api/public", publicApi(postgreSql));
+app.use("/api/private", privateApi(postgreSql));

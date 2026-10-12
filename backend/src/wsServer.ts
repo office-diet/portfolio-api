@@ -4,11 +4,12 @@ import { GoogleGenAI } from "@google/genai";
 import { Groq } from "groq-sdk";
 import dotenv from "dotenv";
 import { getJstNow, utc2jst } from "./utils/jst";
+import { authenticate } from "./utils/auth";
 import { usuchanName, usuchanPersona, sayakaName, sayakaPersona } from "./config/aiPersona";
 import type { JoinInfo, NewVisitorReturnData, 
               NewChat, NewChatReturn, OnlineCount, 
               GetId, GetIdCreatedAt, ChatLogFromSQL, 
-              ChatLogForTS, OnlineUser } from "./types/types";
+              ChatLogForTS, OnlineUser, ChatEdit, ChatDelete} from "./types/types";
 
 dotenv.config();
 
@@ -26,7 +27,6 @@ let usuchanRate:number = 0.5;
 let usuchanId:string = "";
 let sayakaId:string = "";
 
-
 let chatHistoryGemini = [];
 let chatHistoryGroq =   [];
 let visitorCount:number = 0;
@@ -40,8 +40,8 @@ postgreSQL.connect();
 export function startWebSocketServer(server: any) {
   const wss = new WebSocketServer({ server, path: "/ws/" });
 
-  wss.on("connection", async (ws: WebSocket) => {
-
+  wss.on("connection", async (ws: WebSocket, req) => {
+    const authPromise = authenticate(req.headers.cookie);
     ws.on("message", async (data: string) => {
 
       // -----------------------------------
@@ -137,15 +137,27 @@ export function startWebSocketServer(server: any) {
       if (msg.type === "join") {
 
         const JoinInfo:JoinInfo = msg;
+        const auth = await authPromise;
+
         const result = await postgreSQL.query<GetId>("SELECT id FROM visitors");
-        visitorCount = result.rows.length + 1;                // 過去の訪問者数+新規を取得
-        const visitorName:string = `GuestUser-${visitorCount - 2}`;  // AIの人数を除外してGuestUserに採番
-        const visitorNew = await postgreSQL.query<GetId>(
-                                "INSERT INTO visitors (name, os, device, browser, lang, timezone) " +
-                                "VALUES ($1, $2, $3, $4, $5, $6) " +
-                                "RETURNING id",
-                                [visitorName, JoinInfo.os, JoinInfo.device, JoinInfo.browser, JoinInfo.lang, JoinInfo.timezone]);
-        const visitorId:string = visitorNew.rows[0].id;
+        let visitorId:string = "";
+        let visitorName:string = "";
+        let visitorCount:number = result.rows.length;
+
+        if (auth) {
+          visitorName = auth.visitorName;
+          visitorId = auth.visitorId;
+          ws.send(JSON.stringify({type:"auth", name: visitorName, email: "", visitorId: visitorId}));
+        } else {
+          visitorCount += 1;                // 過去の訪問者数+新規を取得
+          visitorName = `GuestUser-${visitorCount - 2}`;  // AIの人数を除外してGuestUserに採番
+          const visitorNew = await postgreSQL.query<GetId>(
+                                  "INSERT INTO visitors (name, os, device, browser, lang, timezone) " +
+                                  "VALUES ($1, $2, $3, $4, $5, $6) " +
+                                  "RETURNING id",
+                                  [visitorName, JoinInfo.os, JoinInfo.device, JoinInfo.browser, JoinInfo.lang, JoinInfo.timezone]);
+          visitorId = visitorNew.rows[0].id;
+        }
 
         
         const chat_logs = await postgreSQL.query<ChatLogFromSQL>(
@@ -155,13 +167,14 @@ export function startWebSocketServer(server: any) {
                                               "FROM chat_logs " +
                                               "ORDER BY created_at DESC LIMIT 50 ) AS recent " +
                                             "ORDER BY created_at ASC");
-        const chatLogs:ChatLogForTS[] = chat_logs.rows.map((row:ChatLogFromSQL) => ({
-                                                        id: String(row.id),
-                                                        visitorId: String(row.visitor_id),
-                                                        visitorName: String(row.name),
-                                                        message: String(row.message),
-                                                        createdAt: utc2jst(row.created_at)
-                                                      }));
+        const chatLogs:ChatLogForTS[] = chat_logs.rows.map((row:ChatLogFromSQL) => (
+                                                          {
+                                                            id: String(row.id),
+                                                            visitorId: String(row.visitor_id),
+                                                            visitorName: String(row.name),
+                                                            message: String(row.message),
+                                                            createdAt: utc2jst(row.created_at)
+                                                          } ));
         
         const newVisitorReturnData:NewVisitorReturnData = 
             {type: "visitorId", visitorId: visitorId, visitorName: visitorName, chatLogs: chatLogs};
@@ -271,14 +284,15 @@ export function startWebSocketServer(server: any) {
 
   });
 
-  // すべてのWebSocketに情報を送信
-  function broadcast(obj: OnlineCount | NewChatReturn) {
-    const json:string = JSON.stringify(obj);
-    onlineUsers.forEach((user:OnlineUser) => {
-      user.ws.send(json);
-    });
-  }
+}
 
+
+// すべてのWebSocketに情報を送信
+export function broadcast(obj: OnlineCount | NewChatReturn | ChatEdit | ChatDelete) {
+  const json:string = JSON.stringify(obj);
+  onlineUsers.forEach((user:OnlineUser) => {
+    user.ws.send(json);
+  });
 }
 
 
