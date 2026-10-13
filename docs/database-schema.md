@@ -16,8 +16,9 @@
 
 | テーブル名 | 概要 | 主キー (PK) |
 | :--- | :--- | :--- |
-| [`chat_logs`](#1-chat_logsテーブル) | チャットのメッセージ履歴および発言者を管理するテーブル | `id` (UUID) |
-| [`visitors`](#2-visitorsテーブル) | アプリにアクセスした訪問者のセッション・デバイス情報を管理するテーブル | `id` (UUID) |
+| `chat_logs` | チャットのメッセージ履歴および発言者を管理するテーブル | `id` (UUID) |
+| `visitors` | アプリにアクセスした訪問者のセッション・デバイス情報を管理するテーブル | `id` (UUID) |
+| `users` | アカウント登録ユーザを管理 | `id` (UUID) |
 
 ---
 
@@ -54,6 +55,19 @@
 
 ---
 
+### ② `users` テーブル
+アプリケーションにアクセスしたユーザーのクライアント環境（OS、デバイス、ブラウザなど）や訪問・退出時間を管理します。
+
+| カラム名 | データ型 | NULL | 制限・デフォルト値 | 説明 |
+| :--- | :--- | :--- | :--- | :--- |
+| `id` | `UUID` | NOT NULL | `PRIMARY KEY`, デフォルト: `uuid_generate_v4()` | アカウント識別ID |
+| `name` | `TEXT` | NOT NULL | - | ログインユーザ名 |
+| `email` | `TEXT` | NOT NULL | - | ログインメールアドレス |
+| `password` | `TEXT` | N/T | - | パスワード（ハッシュを保存） |
+| `created_at` | `TIMESTAMP` | NOT NULL | デフォルト: `NOW()` (UTC) | アカウント作成日 |
+
+---
+
 ## 4. 初期データ (Seed Data)
 アプリケーション起動時・デプロイ時に、常時チャットに入室しているAI2名の情報を入力し、IDの発行を実施します。
 
@@ -62,3 +76,4 @@ INSERT INTO visitors (name, os, device, browser, lang, timezone)
 VALUES 
   ('臼ちゃん', 'Windows', 'PC', 'Chrome', 'ja', 'Asia/Tokyo'),
   ('さやか', 'iOS', 'mobile', 'Safari', 'ja', 'Asia/Tokyo');
+```

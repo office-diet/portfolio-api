@@ -54,9 +54,9 @@ export const privateApi = (postgreSql: Client) => {
                 httpOnly: true,
                 maxAge: 60 * 60 * 1000,
             });
-            return res.send({message: "signin", name: name, email: email, password: password, visitorId: userId});
+            return res.send({message: "signin", name: name, email: email, visitorId: userId});
         } catch (error) {
-            return res.status(400).send({message: "ユーザー登録に失敗しました（サーバエラー）"});        
+            return res.status(500).send({message: "ユーザー登録に失敗しました（サーバエラー）"});        
         }
     });
     
@@ -137,8 +137,6 @@ export const privateApi = (postgreSql: Client) => {
 
     // 削除
     router.delete("/chats/:id", requireAuth, async (req, res) => {
-        console.log("params ", req.params.id);
-        console.log("auth ", req.auth.visitorId);
         const message = await postgreSql.query(
             "SELECT * FROM chat_logs WHERE id=$1 AND visitor_id=$2;",
             [req.params.id, req.auth.visitorId]

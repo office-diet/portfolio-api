@@ -1,7 +1,0 @@
-{
-  "wsUrl": "ws://localhost:3000/ws",
-  "signinUrl": "http://localhost:3000/api/private/signin",
-  "loginUrl": "http://localhost:3000/api/private/login",
-  "logoutUrl": "http://localhost:3000/api/private/logout",
-  "chatUrl": "http://localhost:3000/api/private/chats"
-}
